@@ -1,41 +1,54 @@
 __author__ = 'slyfocks'
+import numpy as np
 
-# You may, but are NOT required to, use object-oriented programming (OOP) in your solution.
-# If you choose to use OOP, the methods described below should be class instance methods.
+reputation_list = []
+num_players = []
+num_hunts = []
+decision_counts = []
 
-# You may put any variables that you wish to maintain at the module level:
-
-my_variable = 0 # Example optional module variable
-
-# Other auxiliary functions are allowed, but your script must implement at least the three
-# functions below, no matter what approach you choose to use. For the OOP option, don't
-# forget to add 'self' as a first argument of every function.
 
 def hunt_choices(round_number, current_food, current_reputation, m,  player_reputations):
     # The main routine that plays each individual round.
+    hunt_decisions = []
+    player_count = len(player_reputations)
+    #number of decisions made in each round by all of the players combined
+    decision_count = float(player_count*(player_count - 1))
     if round_number == 1:
-        hunt_decisions = ['h'*len(player_reputations)]
-    # You must create an array of variables 'hunt_decisions' and assign an 'h' for hunt or
-    # an 's' for slack (i.e., not hunt) to each member of the array; the order of the hunt
-    # decisions in hunt_decisions should correspond to the order of opponents'
-    # reputations in player_reputations.
-
-    # Blank variables or errors will be assigned 's'.
-
-    # The variables passed in to hunt_choices for your use are:
-    #     round_number: integer, the number round you are in.
-    #     current_food: integer, the amount of food you have.
-    #     current_reputation: float (python's representation of real numbers), your current reputation.
-    #     m: integer, the threshold cooperation/hunting value for this round.
-    #     player_reputations: list of floats, the reputations of all the remaining players in the game.
-    #                         The ordinal positions of players in this list will be randomized each round.
-
-    # You may use the global syntax to assign values to any global variables you define, as in:
-
-    global my_variable # Example of making optional my_variable global
-    my_variable += 1 # Example of incrementing optional global variable my_variable by 1
-
+        hunt_decisions = ['h'*player_count]
+    else:
+        average_rep = sum(player_reputations)/player_count
+        average_last_rep = float(sum(reputation_list[-1])/num_players[-1])
+        percent_hunt = float(num_hunts[-1])/decision_counts[-1]
+        if num_players[-1] > len(player_reputations):
+            #number of players eliminated between rounds
+            num_elim = num_players[-1] - len(player_reputations)
+            #average reputation if eliminated are included
+            rep_with_elim = ((round_number - 1)*average_last_rep + percent_hunt)/round_number
+            #from this, calculate average reputation of the eliminated
+            #this will be used to "pity" those who are deemed to be closer to elimination
+            elim_rep_avg = (num_players[-1]*rep_with_elim - average_rep*player_count)/num_elim
+            #make probability of hunting for those close to elimination 1 and decrease outwards
+            #this takes advantage of naive players close to 1 and refuses to help the lazy
+            #make the probability for average = percent_hunt so we can closely mimic the previous round's activity
+            slope = abs((1-percent_hunt)/(elim_rep_avg - average_rep))
+            for player_rep in player_reputations:
+                if np.random.random_sample() < (1 - slope*abs(player_rep - elim_rep_avg)):
+                    hunt_decisions.append('h')
+                else:
+                    hunt_decisions.append('s')
+        #else we take an adapted tit-for-tat approach where the
+        else:
+            slope = -abs((1 - percent_hunt)/(average_rep - percent_hunt))
+            for player_rep in player_reputations:
+                if np.random.random_sample() < (1 - slope*abs(player_rep - average_rep)):
+                    hunt_decisions.append('h')
+                else:
+                    hunt_decisions.append('s')
+    reputation_list.append(player_reputations)
+    num_players.append(player_count)
+    decision_counts.append(decision_count)
     return hunt_decisions
+
 
 def hunt_outcomes(food_earnings):
     # hunt_outcomes is called after all hunts for the round are complete.
@@ -50,13 +63,11 @@ def hunt_outcomes(food_earnings):
     #                    The list will be in the same order as the decisions you made in that round.
 
     pass
-    # pass is a python placeholder for if you want to define a function that doesn't have
-    # any other code. You should replace pass with your own code if you want to use this
-    # function, otherwise leave it to prevent errors caused by an empty function.
+
 
 def round_end(award, m, number_hunters):
     # round_end is called after all hunts for the round are complete.
-
+    num_hunts.append(number_hunters)
     # award - the total amount of food you received due to cooperation in the round.
     # Can be zero if the threshold m was not reached.
 
